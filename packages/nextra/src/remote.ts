@@ -1,14 +1,24 @@
 import { compileMdx } from './compile'
+import { LoaderOptions } from './types'
 
-export const buildDynamicMDX = async (content: string) => {
-  const mdx = await compileMdx(content)
+export const buildDynamicMDX = async (
+  content: string,
+  loaderOptions: Pick<
+    LoaderOptions,
+    'latex' | 'codeHighlight' | 'defaultShowCopyCode'
+  >
+) => {
+  const { result, headings, frontMatter, title } = await compileMdx(
+    content,
+    loaderOptions
+  )
 
   return {
-    __nextra_dynamic_mdx: mdx.result,
+    __nextra_dynamic_mdx: result,
     __nextra_dynamic_opts: JSON.stringify({
-      headings: mdx.headings || [],
-      frontMatter: mdx.frontMatter || {},
-      title: mdx.frontMatter?.title || mdx.title
+      headings,
+      frontMatter,
+      title: frontMatter.title || title
     })
   }
 }

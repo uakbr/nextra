@@ -2,7 +2,7 @@ import { createProcessor, ProcessorOptions } from '@mdx-js/mdx'
 import { Processor } from '@mdx-js/mdx/lib/core'
 import remarkGfm from 'remark-gfm'
 import rehypePrettyCode from 'rehype-pretty-code'
-import readingTime from 'remark-reading-time'
+import remarkReadingTime from 'remark-reading-time'
 import grayMatter from 'gray-matter'
 
 import {
@@ -10,7 +10,8 @@ import {
   remarkHeadings,
   structurize,
   parseMeta,
-  attachMeta
+  attachMeta,
+  remarkRemoveImports
 } from './mdx-plugins'
 import { LoaderOptions, PageOpts, ReadingTime } from './types'
 import theme from './theme.json'
@@ -83,6 +84,15 @@ export async function compileMdx(
     ...(frontMatter.mdxOptions as Record<string, unknown>)
   }
 
+  const {
+    staticImage,
+    flexsearch,
+    readingTime,
+    latex,
+    codeHighlight,
+    defaultShowCopyCode
+  } = loaderOptions
+
   const compiler =
     (useCachedCompiler && cachedCompilerForFormat[format]) ||
     (cachedCompilerForFormat[format] = createProcessor({
@@ -94,18 +104,18 @@ export async function compileMdx(
       development: false,
       remarkPlugins: [
         ...remarkPlugins,
+        outputFormat === 'function-body' && remarkRemoveImports,
         remarkGfm,
         remarkHeadings,
-        loaderOptions.staticImage && remarkStaticImage,
-        loaderOptions.flexsearch &&
-          structurize(structurizedData, loaderOptions.flexsearch),
-        loaderOptions.readingTime && readingTime,
-        loaderOptions.latex && remarkMath
+        staticImage && remarkStaticImage,
+        flexsearch && structurize(structurizedData, flexsearch),
+        readingTime && remarkReadingTime,
+        latex && remarkMath
       ].filter(truthy),
       rehypePlugins: [
         ...rehypePlugins,
-        [parseMeta, { defaultShowCopyCode: loaderOptions.defaultShowCopyCode }],
-        loaderOptions.codeHighlight &&
+        [parseMeta, { defaultShowCopyCode }],
+        codeHighlight &&
           ([
             rehypePrettyCode,
             {
@@ -114,7 +124,7 @@ export async function compileMdx(
             }
           ] as any),
         attachMeta,
-        loaderOptions.latex && rehypeKatex
+        latex && rehypeKatex
       ].filter(truthy)
     }))
 

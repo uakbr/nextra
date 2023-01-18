@@ -1,0 +1,59 @@
+import fs from "fs/promises";
+import path from "path";
+import { buildDynamicMDX, buildDynamicMeta } from "nextra/remote";
+import { RemoteContent } from "nextra/data";
+import { Callout } from "nextra-theme-docs";
+import { listFiles } from "@components/remote-utils";
+
+export const getStaticProps = async ({ params }) => {
+  async function findPathWithExtension() {
+    const dirs = params.slug.slice(0, -1);
+    const files = await fs.readdir(
+      path.join("./.next/cache/nextra-remote/website/src/pages/docs", ...dirs),
+      { withFileTypes: true }
+    );
+    const filename = params.slug.at(-1);
+    const matched = files.find((file) => {
+      const { name, ext } = path.parse(file.name);
+      return file.isFile() && name === filename && /\.mdx?$/.test(ext);
+    })?.name;
+
+    return path.join(
+      "./.next/cache/nextra-remote/website/src/pages/docs",
+      ...dirs,
+      matched
+    );
+  }
+
+  const content = await fs.readFile(await findPathWithExtension(), "utf8");
+  return {
+    props: {
+      ...(await buildDynamicMDX(content, {
+        codeHighlight: true,
+        defaultShowCopyCode: true,
+      })),
+      ...(await buildDynamicMeta()),
+    },
+    revalidate: 10,
+  };
+};
+
+export const getStaticPaths = async () => {
+  const filePaths = (await listFiles()).filter(
+    (filename) =>
+      filename.startsWith("website/src/pages/docs") && /\.mdx?$/.test(filename)
+  );
+  return {
+    paths: filePaths.map((filename) => ({
+      params: {
+        slug: filename
+          .replace("website/src/pages/docs/", "")
+          .replace(/\.mdx?$/, "")
+          .split("/"),
+      },
+    })),
+    fallback: "blocking",
+  };
+};
+
+<RemoteContent components={{ Callout, PackageCmd: () => null }} />;

@@ -8,10 +8,13 @@ import get from 'lodash.get'
 import { NEXTRA_INTERNAL } from './constants'
 import {
   DynamicMetaDescriptor,
+  Folder,
   NextraInternalGlobal,
   PageOpts,
-  ThemeConfig
+  ThemeConfig,
+  MetaJsonFile
 } from './types'
+import { normalizePageRoute } from './utils'
 
 /**
  * Calculate a 32 bit FNV-1a hash
@@ -34,6 +37,63 @@ function hashFnv32a(str: string, seed = 0x811c9dc5): string {
   return ('0000000' + (hval >>> 0).toString(16)).substring(-8)
 }
 
+export function collectCatchAll(
+  parent: Folder<any>,
+  meta: Omit<MetaJsonFile, 'data'> & { data: Record<string, any> }
+) {
+  for (const [dir, value] of Object.entries(meta.data)) {
+    const isFolder = dir.startsWith('/')
+    if (!isFolder) {
+      addPageToPageMap(parent, value, meta.locale)
+      continue
+    }
+    const isCurrentFolder = dir === '/'
+
+    const filesOnly = Object.fromEntries(
+      Object.entries(value).filter(([k]) => !k.startsWith('/'))
+    )
+
+    if (isCurrentFolder) {
+      meta.data = filesOnly
+      collectCatchAll(parent, {
+        kind: 'Meta',
+        data: value,
+        locale: meta.locale
+      })
+    } else {
+      const newParent: Folder = {
+        kind: 'Folder',
+        name: dir.replace(/(^\/)|(\/)$/g, ''),
+        route: `${parent.route}${dir}`,
+        children: [
+          {
+            kind: 'Meta',
+            locale: meta.locale,
+            // @ts-expect-error todo: fix Type '{ [k: string]: unknown; }' is not assignable to type '{ [fileName: string]: Meta; }'
+            data: filesOnly
+          }
+        ]
+      }
+
+      parent.children.push(newParent)
+      collectCatchAll(newParent, {
+        kind: 'Meta',
+        data: value,
+        locale: meta.locale
+      })
+    }
+  }
+}
+
+function addPageToPageMap(parent: any, key: string, locale = '') {
+  parent.children.push({
+    kind: 'MdxPage',
+    locale,
+    name: key.split('/').pop(),
+    route: normalizePageRoute(parent.route, key)
+  })
+}
+
 export function setupNextraPage({
   pageNextRoute,
   pageOpts,
@@ -54,25 +114,27 @@ export function setupNextraPage({
   if (typeof window === 'undefined') {
     globalThis.__nextra_resolvePageMap = async () => {
       const clonedPageMap = JSON.parse(JSON.stringify(pageOpts.pageMap))
+
       await Promise.all(
         dynamicMetaItems.map(
           async ({ metaFilePath, metaObjectKeyPath, metaParentKeyPath }) => {
             const mod = await import(metaFilePath)
-            const metaData = await mod.default()
             const meta = get(clonedPageMap, metaObjectKeyPath)
-            meta.data = metaData
+            meta.data = await mod.default()
 
-            const parentRoute =
-              get(clonedPageMap, metaParentKeyPath.replace(/\.children$/, ''))
-                .route || ''
-
-            for (const key of Object.keys(metaData)) {
-              get(clonedPageMap, metaParentKeyPath).push({
-                kind: 'MdxPage',
-                locale: meta.locale,
-                name: key.split('/').pop(),
-                route: parentRoute + '/' + key
-              })
+            const parent = get(
+              clonedPageMap,
+              metaParentKeyPath.replace(/\.children$/, '')
+            )
+            const metaKeys = Object.keys(meta.data)
+            const isCatchAllMeta = metaKeys.some(key => key.includes('/'))
+            if (isCatchAllMeta) {
+              // meta for catch-all route [...slug].mdx
+              collectCatchAll(parent, meta)
+            } else {
+              for (const key of metaKeys) {
+                addPageToPageMap(parent, key, meta.locale)
+              }
             }
           }
         )

@@ -19,6 +19,7 @@
     "next-mdx-remote": "^4.2.0",
     "nextra": "workspace:*",
     "nextra-theme-docs": "workspace:*",
+    "isomorphic-git": "1.21.0",
     "react": "*",
     "react-dom": "*",
     "react-intersection-observer": "^8.26.2"
