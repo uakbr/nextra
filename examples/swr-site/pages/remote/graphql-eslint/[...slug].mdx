@@ -43,15 +43,18 @@ export const getStaticPaths = async () => {
     (filename) =>
       filename.startsWith("website/src/pages/docs") && /\.mdx?$/.test(filename)
   );
+  const paths = filePaths.map((filename) => ({
+    params: {
+      slug: filename
+        .replace("website/src/pages/docs/", "")
+        .replace(/\.mdx?$/, "")
+         //.replace(/(\/|^)index$/, '')
+        .split("/"),
+    },
+  }))
+
   return {
-    paths: filePaths.map((filename) => ({
-      params: {
-        slug: filename
-          .replace("website/src/pages/docs/", "")
-          .replace(/\.mdx?$/, "")
-          .split("/"),
-      },
-    })),
+    paths,
     fallback: "blocking",
   };
 };

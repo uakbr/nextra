@@ -23,6 +23,7 @@ module.exports = async () => {
     metaMap[dirPath][filename] = filename;
   }
 
+  // TODO: return meta from metaMap
   return {
     "/": {
       configs: "configs",
