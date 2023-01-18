@@ -746,7 +746,15 @@ exports[`context > getAllPages() > should work 1`] = `
     "route": "/docs",
   },
   {
-    "children": [],
+    "children": [
+      {
+        "children": [],
+        "kind": "Folder",
+        "meta": undefined,
+        "name": "graphql-eslint",
+        "route": "/remote/graphql-eslint",
+      },
+    ],
     "kind": "Folder",
     "meta": {
       "display": "children",
